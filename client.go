@@ -3,6 +3,7 @@ package ddseries
 import (
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -49,6 +50,15 @@ func (c *Client) Do(ctx context.Context, queries ...Query) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		errMessage, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(errMessage))
+	}
 
 	gr, err := gzip.NewReader(resp.Body)
 	if err != nil {
