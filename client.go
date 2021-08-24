@@ -9,6 +9,11 @@ import (
 	"os"
 )
 
+const (
+	contentEncodingHeader = "Content-Encoding"
+	gzipEncoding = "gzip"
+)
+
 // NewClient returns a new client
 func NewClient(httpClient *http.Client) *Client {
 	return &Client{
@@ -51,7 +56,7 @@ func (c *Client) Do(ctx context.Context, queries ...Query) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		errMessage, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
@@ -60,15 +65,23 @@ func (c *Client) Do(ctx context.Context, queries ...Query) ([]byte, error) {
 		return nil, errors.New(string(errMessage))
 	}
 
-	gr, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	defer gr.Close()
+	var body []byte
+	if resp.Header.Get(contentEncodingHeader) == gzipEncoding {
+		gr, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gr.Close()
 
-	body, err := io.ReadAll(gr)
-	if err != nil {
-		return nil, err
+		body, err = io.ReadAll(gr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return body, nil
